@@ -21,9 +21,9 @@ class MAC:
 
         self.input_path = path.join(cwd, dir_name, 'temp_input.csv').replace('\\', '/')
 
-        self.cp_path = path.join(cwd, dir_name, 'temp_CP').replace('\\', '/')
-        self.runtime = path.join(cwd, dir_name, 'temp_runtime').replace('\\', '/')
-        self.data = path.join(cwd, dir_name, 'temp_data').replace('\\', '/')
+        self.path_cp = path.join(cwd, dir_name, 'temp_CP').replace('\\', '/')
+        self.path_runtime = path.join(cwd, dir_name, 'temp_runtime').replace('\\', '/')
+        self.path_data = path.join(cwd, dir_name, 'temp_data').replace('\\', '/')
 
         self.sep = ';'
 
@@ -42,7 +42,7 @@ class MAC:
         rows = df.shape[0]
         columns = df.shape[1] - 1  # one predictor
 
-        cmd = f'java -jar {self.jar_path} -FILE_INPUT {self.input_path} -FILE_CP_OUTPUT {self.cp_path} -FILE_RUNTIME_OUTPUT {self.runtime} -FILE_DATA_OUTPUT {self.data} -NUM_ROWS {rows} -NUM_MEASURE_COLS {columns} -FIELD_DELIMITER {self.sep} -CLUMPS {self.CLUMPS}'
+        cmd = f'java -jar {self.jar_path} -FILE_INPUT {self.input_path} -FILE_CP_OUTPUT {self.path_cp} -FILE_RUNTIME_OUTPUT {self.path_runtime} -FILE_DATA_OUTPUT {self.path_data} -NUM_ROWS {rows} -NUM_MEASURE_COLS {columns} -FIELD_DELIMITER {self.sep} -CLUMPS {self.CLUMPS}'
         print('mac is running...')
         r = subprocess.run(cmd, stdout=subprocess.PIPE)
         self.terminal_output = r.stdout.decode('utf-8')
@@ -53,7 +53,7 @@ class MAC:
         return self.cp
 
     def parse_response(self):
-        with open(self.cp_path, 'r') as file:
+        with open(self.path_cp, 'r') as file:
             content = ''.join(file.readlines()).split('-------------------------------------\n')
 
         for i, bin_str in enumerate(content):
