@@ -22,6 +22,8 @@ mac = MAC()
 # format your data into a pandas dataframe
 df = pd.DataFrame(...)
 
+mac.CLUMPS = 5  # default is 30
+
 # run mac on your dataframe
 bins = mac.run(df)
 
