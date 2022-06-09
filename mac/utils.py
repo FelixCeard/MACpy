@@ -50,7 +50,7 @@ class MAC:
 
         self.parse_response()
 
-        return self.cp
+        return self.cp.copy()
 
     def parse_response(self):
         with open(self.path_cp, 'r') as file:
