@@ -49,3 +49,61 @@ Workind Directory
 │   ├── temp_runtime
 │   ├── temp_input.csv
 ```
+
+## Slim
+A wrapper for SLIM is also included. For it please **download** and **extract** from https://eda.mmci.uni-saarland.de/prj/slim/ in the slim folder. The resulting structure should resemble sth. like:
+```
+Workind Directory
+├── README.md 
+├── mac  
+├── slim  
+│   ├── bin         
+│   ├── data
+│   ├── docs
+│   ├── trunk
+│   ├── xps
+│   ├── __init__.py
+│   ├── utils.py
+```
+
+Additionally, similar to MAC, a folder is being created in the working directory.
+**Note that compression results will be in this folder.** 
+
+## Code example
+```python
+from slim import SLIM
+
+# <Generate and Save your data to a dat file (example files are in the slim folder)>
+
+slim = SLIM({
+    "folder_name": "SLIM",
+    "max_mem": 1536,
+    "preferred_afopt": "internal",
+    "internal_mine_to": "memory",
+    "fic_path": r"C:\Users\felix\PycharmProjects\MACpy\slim\bin\fic_x64.exe",
+})
+
+slim.convert_dat_to_db({
+    "path_dat": r"C:\Users\felix\PycharmProjects\MACpy\slim\test\chess.dat",
+    "easy": "0",
+})
+
+slim.mine_compression({
+    "path_dat": r"C:\Users\felix\PycharmProjects\MACpy\slim\test\chess.dat",
+    "easy": "0",
+    "num_threads": 1,
+    "data_type": "bm128",
+    "prune_strategy": "pep",
+    "max_time": 0,
+    "min_sup": 1
+})
+```
+
+If you see sth. along
+```python
+################################################## saving path ##################################################
+C:\Users\felix\PycharmProjects\MACpy\slim\SLIM\xps\compress_ng\chess-all-1d-slimMJ-n-cccpu-pep-20221106193627
+#################################################################################################################
+```
+
+then the compression worked

@@ -114,7 +114,7 @@ Your comments here.
 
 
     def mine_compression(self, opt):
-        easy = "0" if "max_mem" not in opt else opt["easy"]
+        easy = "0" if "easy" not in opt else opt["easy"]
         numThreads = 1 if "num_threads" not in opt else opt["num_threads"]
 
         if self.db_name == "" or self.data_dir == "":
