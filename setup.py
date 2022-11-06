@@ -5,7 +5,7 @@ setup(
     version='0.1.0',
     author='Felix Ceard-Falkenberg',
     author_email='felix@falkenbergs.de',
-    packages=['mac'],
+    packages=['mac', 'slim'],
     package_data={'': ['MAC.jar']},
     include_package_data=True,
     description='A wrapper for the MAC algorithm',
