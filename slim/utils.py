@@ -3,8 +3,6 @@ import os.path as path
 import subprocess
 import glob
 
-import pandas as pd
-
 
 class SLIM:
 
@@ -31,6 +29,7 @@ class SLIM:
         self.cwd = cwd
         self.fic_path = fic_path
         self.dir_name = dir_name
+        self.xpsdir = xpsdir
 
         # create config file
         max_mem = 1536 if "max_mem" not in conf else conf["max_mem"]
@@ -48,7 +47,7 @@ xpsdir = {xpsdir}
         with open(os.path.join(head, "fic.user.conf"), "w") as file:
             file.write(config)
 
-    def convert_dat_to_db(self, opt):
+    def convert_dat_to_db(self, opt, for_classification=False):
         head, tail = os.path.split(opt["path_dat"])
 
         easy = "0" if "easy" not in opt else opt["easy"]
@@ -58,47 +57,19 @@ xpsdir = {xpsdir}
         self.data_dir = data_dir
         self.db_name = file_name
 
-        config = f"""### Convert database configuration file ###
-    
-taskclass = datatrans
-# Command
+        config = f"""taskclass = datatrans
 command = convertdb
-# TakeItEasy(tm)
 takeItEasy = {easy}
-
-# Full data path; don't forget to end with a (back)slash. Read from datadir.conf if empty.
 dataDir = {data_dir}
-
-## Base database filename
 dbName = {file_name}
-
-## Input database
-# Encoding ( fimi | fic )
 dbInEncoding = fimi
-# Extension (search for [dbName].[dbInExt])
 dbInExt = dat
-
-## Output database
-# Extension
 dbOutExt = db
-# Encoding ( fic )
 dbOutEncoding = fic
-# 'Translate forward' (convert item numbers to default fic numbering)
 dbOutTranslateFw = true
-# Order the items ascending on number (as they should be)
 dbOutOrderInTrans = true
-# Create a 'binned' database, meaning that all equal transactions are 'merged' into one transaction with a multiplier
-# This works well for databases with many 'double' transactions, speeding up the cover process
 dbOutBinned = false
-
-# Use the alphabet (and translation) as defined in the following FIC db file. 
-# (Use this to ensure that you always get the same alphabet when using a subset of a particular db.)
-#useAlphabetFrom = chess
-
 EndConfig
-
-Your comments here.
-
 """
         # save the config
         conf_file_path = os.path.join(self.cwd, self.dir_name, "convertdb.conf").replace("\\", "/")
@@ -112,6 +83,15 @@ Your comments here.
         p.communicate(input=b"\n")
         print("")
 
+        if for_classification:
+            path_db = os.path.join(head, file_name+".db")
+            with open(path_db, 'r') as file:
+                content = file.readlines()
+            if "cl" not in opt:
+                raise AssertionError("cl need to be specified in the opt as \"cl: [0, 1]\" for example")
+            content.insert(2, "cl: "+" ".join(opt["cl"]) + "\n")
+            with open(path_db, 'w') as file:
+                file.write("".join(content))
 
     def mine_compression(self, opt):
         easy = "0" if "easy" not in opt else opt["easy"]
@@ -130,48 +110,90 @@ Your comments here.
         maxTime = 0 if "max_time" not in opt else opt["max_time"]
         min_sup = 1 if "min_sup" not in opt else opt["min_sup"]
 
-        config = f"""### (Regular) compression configuration file ###
+        # usg or gain
+        estimation_strategy = "usg" if "estimation_strategy" not in opt else opt["estimation_strategy"]
 
-# Class : the task you want to perform : compress_ng
-taskclass = compress_ng
-
-# Command compress
+        config = f"""taskclass = compress_ng
 command = compress
-
-# TakeItEasy(tm) -- ( 0 | 1 ) If enabled, process runs with low priority.
 takeItEasy = {easy}
+numThreads = {numThreads} 
+dataDir = {data_dir}
+datatype = {datatype}
+iscName = {file_name}-all-{min_sup}d
+pruneStrategy = {pruneStrategy}
+algo = slimMJ-cccoverpartial-usg
+estStrategy = {estimation_strategy}
+thresholdBits = 0
+maxTime = {maxTime}
+reportSup = 50
+reportCnd = 0
+reportAcc = 0
+iscIfMined = zap
+iscStoreType = isc
+iscChunkType = isc
+writeLogFile = no
+writeCTLogFile = no
+writeReportFile = no
+writeProgressToDisk = yes
+EndConfig
+"""
+
+        # save the config
+        conf_file_path = os.path.join(self.cwd, "SLIM", "compress.conf").replace("\\", "/")
+        with open(conf_file_path, "w") as file:
+            file.write(config)
+
+        cmd = fr'{self.fic_path} {conf_file_path}'
+        print("")
+
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, shell=True)
+        p.communicate(input=b"\n")
+
+        list_of_files = glob.glob(os.path.join(self.cwd, "SLIM", "xps", "compress_ng") + '/*')
+        latest_file = max(list_of_files, key=os.path.getctime)
+        print("")
+        print("#" * 50, "saving path", "#" * 50, )
+        print(latest_file)
+        print("#" * 113)
+
+    def mine_classification(self, opt):
+        easy = "0" if "easy" not in opt else opt["easy"]
+        numThreads = 1 if "num_threads" not in opt else opt["num_threads"]
+
+        if self.db_name == "" or self.data_dir == "":
+            # todo raise Error
+            raise EOFError()
+
+        data_dir = self.data_dir
+        file_name = self.db_name
+
+        datatype = "bm128" if "data_type" not in opt else opt["data_type"]
+        pruneStrategy = "pep" if "prune_strategy" not in opt else opt["prune_strategy"]
+
+        maxTime = 0 if "max_time" not in opt else opt["max_time"]
+        min_sup = 1 if "min_sup" not in opt else opt["min_sup"]
+
+        config = f"""taskClass = classify
+command = classifycompress
+takeItEasy = {easy}
+dataDir = {data_dir}
+iscName = {file_name}-all-1d
+seed = 0
+
+## Classification
+# Class definition (define which items to regard as class labels; multi-class transactions not allowed!)
+# (Only required when class definition is not given in the original database; option overrides any definition given there)
+#classDefinition = 9 14 22
+
+## Preferred datatype ( uint16 | bai32 | bm128 (default) )
+# Refer to compress.conf for more info on this
+#datatype = bm128
 
 ## Parallel or not
 # Set the number of threads that Slimmer may use
-numThreads = {numThreads} 
+numThreads = 1 
 
-# Full data path; don't forget to end with a (back)slash. Read from datadir.conf if empty.
-dataDir = {data_dir}
-
-# Preferred datatype ( uint16 | bai32 | bm128 (default) )
-# Always keep to default value (bm128) when the number of different items is <= 128.
-# If the number of different items ('alphabet size') is > 128:
-#	Dense data --> choose bai32
-#	Sparse data --> choose uint16
-#	(You may do some small tests to find out what gives the best result for you
-#	with respect to both the required computational power and memory space.)
-datatype = {datatype}
-
-#Input database/frequent itemset collection to be used as candidates
-# iscName = (database Name - candidate type - minimum support + candidate set order)
-#iscName = connect-all-2500d
-#iscName = ionosphere-all-100d
-iscName = {file_name}-all-{min_sup}d
-#iris -> database name
-#all -> Candidate type determined by ( all | cls | closed )
-#1d -> 1 = minimum support, d =  Candidate set order determined by [ a (supp desc, length asc, lex) | d (like a, but length desc) | z | aq | as ... see the code ]
-
-## Compression settings 
-## Pruning
-# On-the-fly / online  (nop = no pruning, pop = post-pruning, pep = post estimation pruning, prunes only if estimated gain > 0 bits)
-pruneStrategy = {pruneStrategy}
-
-### You probably don't want to change anything of the following (possibly except for reportSup)
+## ---------- 'Expert' settings :) --------- ##
 
 ## Compression settings
 # Algorithm name
@@ -189,44 +211,40 @@ estStrategy = gain
 ## Threshold bits for early stopping compression ( 0 = ignore)
 thresholdBits = 0
 
-## maximum time you want algorithm to run (in hours), 0=ignore
-maxTime = {maxTime}
+# max time in hours, 0=ignore
+maxTime = 0
 ##############################################################################
 
-# Report every reportsup support difference (0 = ignore, only on start and end)
-reportSup = 50
-
+# Report after every [reportsup] support change in the candidate list
+reportSup = 10
 # Report at least every reportcnd number of candidates (0 = ignore)
 reportCnd = 0
 
-# Report at least on every accepted candidate ( bool, 0/1 )
-reportAcc = 0
+## Pruning
+# On-the-fly / online  (nop = no pruning, pop = post-pruning, pep = post estimation pruning, prunes only if estimated gain > 0 bits)
+pruneStrategy = pep
 
-## Storage settings
-## What to do when the ISCfile had to be mined? ( zap | store )
-# Store means it'll be written /data/candidates and be reused if the same experiment is started
+## Cross-validation (usually 10-fold CV)
+# Number of folds ([2,*] or 1 for training = test)
+numFolds = 10
+
+# Perform all code table matching schemes (currently meaning: both absolute && relative CT matching)
+allMatchings = 1
+
+## CT matching (only relevant if allMatchings == 0)
+# Try to match codetables relative to max.sup (set to 0 to use absolute matching by reportSup)
+classifyPercentage = 0
+
 iscIfMined = zap
-
-# The file format to store the ISCFile in ( isc | bisc )
 iscStoreType = isc
-# The file format to store the temporary ISCFiles in ( isc | bisc )
 iscChunkType = isc
-
-# write log file?
 writeLogFile = no
-
-# write CTLog file?
 writeCTLogFile = no
-
-# write report file?
 writeReportFile = no
-
-# write progress to disk? (write code tables and/or stats)
 writeProgressToDisk = yes
 
 EndConfig
-
-Your comments here."""
+"""
 
         # save the config
         conf_file_path = os.path.join(self.cwd, "SLIM", "compress.conf").replace("\\", "/")

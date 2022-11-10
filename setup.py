@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='MACpy',
-    version='0.1.0',
+    version='0.1.1',
     author='Felix Ceard-Falkenberg',
     author_email='felix@falkenbergs.de',
     packages=['mac', 'slim'],
